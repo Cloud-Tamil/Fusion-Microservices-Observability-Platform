@@ -192,6 +192,7 @@ services:
       - ./ops/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml
     command:
       - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--cluster.listen-address='
     networks:
       - fusion-net
 

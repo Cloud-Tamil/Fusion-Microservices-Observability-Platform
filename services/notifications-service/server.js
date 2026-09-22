@@ -6,6 +6,17 @@ const PORT = 8004;
 
 app.use(express.json());
 
+// Enable CORS for web console and local testing
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, X-Correlation-ID');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
 // Prometheus Metrics Registry
 const register = new client.Registry();
 client.collectDefaultMetrics({ register, prefix: 'fusion_' });

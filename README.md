@@ -4,6 +4,147 @@ An enterprise-grade, high-availability microservices ecosystem refactored from a
 
 ---
 
+## 🌟 What This Application Has: Complete Inventory of Features & Artifacts
+
+This repository is an end-to-end, production-ready Cloud Native & SRE platform containing runnable microservices, complete Kubernetes & Helm configurations, CI/CD pipelines, Prometheus/Grafana observability suites, and an interactive Cloud Operations Web Console.
+
+### 1. Interactive Web Operations & Observability Console (React 19 + Vite)
+Located in `/src/`, this modern web console provides a live visual interface to monitor, test, and operate the platform:
+- **Interactive Service Mesh & Topology Map (`TopologyView`)**:
+  - Visual node graph displaying 10 connected components (Ingress, API Gateway, 5 Microservices, PostgreSQL, Redis, PgBouncer).
+  - Real-time node throughput (RPS), p95 latency, and error rate metrics with animated status rings (Healthy / Degraded / Outage).
+  - **Self-Healing Chaos Injection**: Interactive "Kill Pod" button on any microservice node to simulate pod crashes and observe Kubernetes self-healing.
+  - **Circuit Breaker Controls**: Toggle circuit breakers per microservice to simulate automated downstream isolation during cascading failures.
+  - **Dynamic Pod Scaling**: Interactive slider and controls to scale replicas between 1 and 10 with live topology updates.
+- **SRE Grafana 11 Dashboard Suite (`GrafanaDashboard`)**:
+  - **99.9% Availability SLO Widget**: Real-time 5-minute rolling availability percentage with compliance status tags.
+  - **SLO Multi-Window Burn Rate Gauge**: Live visualization of 5-minute fast burn rate ($14.4\times$ budget loss) and 1-hour slow burn rate ($6.0\times$).
+  - **Google SRE Golden Signals (RED)**:
+    - *Rate*: Total HTTP request throughput (RPS).
+    - *Errors*: HTTP 5xx error rate percentage.
+    - *Duration*: 95th and 50th percentile response latencies (ms).
+    - *Saturation*: PostgreSQL connection pool depth and active PgBouncer sessions.
+- **Prometheus & PromQL Engine (`PrometheusExplorer`)**:
+  - Interactive PromQL query bar with instant vector evaluations.
+  - Quick-run templates for Availability SLO, Error Rate %, p95 Latency, and Burn Rates.
+  - Scrape target health status grid showing all 7 scrape targets (`api-gateway`, `items-service`, `auth-service`, `orders-service`, `node-exporter`, `kube-state-metrics`, `alertmanager`).
+  - Live raw `/metrics` text exposition viewer in OpenMetrics format.
+- **Clustered Alertmanager Console (`AlertsConsole`)**:
+  - High-availability dual-node gossip mesh status indicator (`:9093` & `:9094`).
+  - Feed of 8 production alert rules (`FusionServiceDown`, `FusionHighErrorRate`, `FusionHighLatencyP95`, `FusionSLOFastBurn`, `FusionSLOSlowBurn`, etc.) with states (`Firing`, `Pending`, `Resolved`).
+  - Active alert silence management with expiration tracking and silence creation.
+- **Hardware Catalog & Cache Testing Store (`CatalogManager`)**:
+  - Live hardware catalog demonstrating sub-millisecond Redis read-through cache hits (<1ms) vs. PostgreSQL cold queries (18–35ms).
+  - Add and delete item operations with automatic cache invalidation.
+  - Real-time audit log tracking request headers, response times, and `X-Correlation-ID` tracing tokens.
+- **DevOps Architecture & Runbook Hub (`ArchitectureDocs`)**:
+  - In-app searchable browser for all 30 production runbooks and interview defense modules.
+  - 1-click copyable production manifests for `docker-compose.yml`, `k8s/base/items-service.yaml`, `.github/workflows/ci-cd.yml`, `helm/values.yaml`, `prometheus.yml`, and `recording_rules.yml`.
+- **Traffic & Chaos Simulation Bar (`Header`)**:
+  - Real-time traffic profiles: **Normal Traffic** (420 RPS), **Traffic Surge** (1,200 RPS), **5xx Error Injection** (simulates database deadlock), and **High Latency Degradation** (simulates disk I/O wait).
+  - Perturbs metrics across the entire application in real time, allowing you to observe alerts firing and burn-rate dials changing live.
+
+---
+
+### 2. Microservice Runtimes & Container Implementation
+Located in `/services/`, each microservice has independent application source code, dependency specifications, and optimized multi-stage Dockerfiles:
+- **`api-gateway` (`:8000`)**:
+  - Python 3.12 + FastAPI runtime.
+  - In-memory token-bucket rate limiter (100 req/s burst limit).
+  - Distributed tracing propagation injecting `X-Correlation-ID` on all inbound and outbound requests.
+  - Native `/health/live`, `/health/ready`, and `/metrics` endpoints.
+- **`auth-service` (`:8001`)**:
+  - Python 3.12 + FastAPI + PyJWT + Cryptography.
+  - Asymmetric RS256 JWT key authority.
+  - Public JWKS endpoint (`/.well-known/jwks.json`) for zero-network token verification.
+  - Redis session token blacklisting and RBAC validation.
+- **`items-service` (`:8002`)**:
+  - Python 3.12 + FastAPI + Redis + SQLAlchemy.
+  - Sub-millisecond Redis read-through caching tier.
+  - PostgreSQL writes with connection pooling via PgBouncer.
+  - Custom Prometheus counters (`fusion_cache_hits_total`, `fusion_cache_misses_total`) and gauges (`fusion_items_count`).
+- **`orders-service` (`:8003`)**:
+  - Python 3.12 + FastAPI + Pydantic v2.
+  - Distributed saga order checkout coordinator with item stock checks.
+  - Idempotency key validation to prevent duplicate order charges during network retries.
+  - Histogram instrumentation for checkout processing latency.
+- **`notifications-service` (`:8004`)**:
+  - Node.js 20 + Express + `prom-client`.
+  - Asynchronous webhook and notification delivery engine with retry queues.
+  - Prometheus default metrics collection and custom delivery counters.
+- **Production Multi-Stage Dockerfiles**:
+  - Multi-stage builds with builder and minimal runner layers (`python:3.12-slim`, `node:20-alpine`).
+  - Dedicated non-root `fusion` user (`UID 10001`) for compliance with Kubernetes restricted pod security standards.
+  - Native container `HEALTHCHECK` definitions.
+
+---
+
+### 3. Complete 10-Service Local Stack (`docker-compose.yml`)
+Runs the complete platform locally with one command (`docker compose up -d --build`):
+1. `api-gateway` (:8000)
+2. `auth-service` (:8001)
+3. `items-service` (:8002)
+4. `orders-service` (:8003)
+5. `notifications-service` (:8004)
+6. `postgres` (:5432 - PostgreSQL 16 Alpine with persistent volume)
+7. `redis` (:6379 - Redis 7.2 Alpine with healthcheck)
+8. `prometheus` (:9090 - Prometheus v2.55 with `--web.enable-lifecycle`)
+9. `alertmanager` (:9093 - Alertmanager v0.27)
+10. `grafana` (:3001 - Grafana 11.3 with auto-provisioned datasources and dashboards)
+
+---
+
+### 4. Production Kubernetes & Helm Infrastructure as Code
+- **`k8s/base/`**:
+  - `namespace.yaml`: Restricted Pod Security Standard enforcement (`pod-security.kubernetes.io/enforce: restricted`).
+  - `configmaps.yaml`: Centralized environment configurations.
+  - `secrets.yaml`: Database credentials, JWT private keys, and webhook URLs.
+  - `api-gateway.yaml`: Zero-downtime deployment (maxSurge 25%, maxUnavailable 0) with probes and resource limits.
+  - `items-service.yaml`:
+    - Deployment with `topologySpreadConstraints` across availability zones.
+    - `HorizontalPodAutoscaler` (HPA) scaling between 3 and 10 replicas (70% CPU, 80% RAM).
+    - `PodDisruptionBudget` (PDB) guaranteeing `minAvailable: 2`.
+    - `ServiceMonitor` CRD for automated Prometheus Operator scraping.
+  - `ingress.yaml`: NGINX Ingress rules, TLS secret bindings, CORS headers, and timeout configurations.
+  - `network-policies.yaml`: Zero-trust network isolation (`default-deny-all`, gateway ingress/egress rules).
+- **`k8s/overlays/`**:
+  - `dev`: Scaled down for lightweight resource footprints (1 replica, 100m CPU).
+  - `prod`: High-availability multi-zone configuration (3 replicas, strict PDB).
+- **`helm/fusion-platform/`**:
+  - Complete reusable Helm 3 chart with `Chart.yaml`, `values.yaml`, and modular templates (`deployment.yaml`, `service.yaml`, `ingress.yaml`, `hpa.yaml`, `servicemonitor.yaml`, `_helpers.tpl`).
+
+---
+
+### 5. Enterprise Observability & Multi-Window Alerting (`ops/`)
+- **`ops/prometheus/prometheus.yml`**: Dual-node scrape configurations for all 5 microservices, `node-exporter`, and `kube-state-metrics`.
+- **`ops/prometheus/recording_rules.yml`**: SRE recording rules computing 5m rolling availability SLOs, error rates, p95 latencies, and multi-window burn rates.
+- **`ops/prometheus/alerts.yml`**: 8 production alert rules:
+  1. `FusionServiceDown` (Instance unreachable >1m) — Critical
+  2. `FusionHighErrorRate` (5xx rate > 5.0% for 2m) — Critical
+  3. `FusionHighLatencyP95` (p95 latency > 1000ms for 3m) — Warning
+  4. `FusionSLOFastBurn` (Burn rate > 14.4x consuming 2% budget in 1h) — Critical
+  5. `FusionSLOSlowBurn` (Burn rate > 6.0x consuming 5% budget in 6h) — Warning
+  6. `FusionHighCPUUsage` (Pod CPU > 85% for 5m) — Warning
+  7. `FusionHighMemoryUsage` (Pod RAM > 90% for 5m) — Critical
+  8. `FusionPodCrashLooping` (>3 container restarts in 10m) — Critical
+- **`ops/alertmanager/alertmanager.yml`**: Clustered gossip mesh configuration (`:9094`), PagerDuty routing for critical alerts, and Slack routing for warning notifications.
+- **`ops/grafana/`**: Automated datasource provisioning and `slo-overview.json` dashboard with Golden Signals panels.
+
+---
+
+### 6. Automated CI/CD Quality & Security Pipelines (`.github/workflows/`)
+- **`ci-cd.yml`**:
+  - Stage 1: Python flake8 and pytest unit testing.
+  - Stage 2: Trivy CVE container and filesystem security vulnerability scan.
+  - Stage 3: Multi-architecture Docker build and push to GitHub Container Registry (`ghcr.io`).
+  - Stage 4: Kubernetes zero-downtime rolling update rollout verification.
+- **`pr-lint.yml`**:
+  - Code formatting checks (`black --check`, `isort --check-only`).
+  - Kubernetes manifest validation via `kubeconform -strict` (v1.30 schema).
+  - Helm chart validation via `helm lint` and `helm template --dry-run`.
+
+---
+
 ## Table of Contents
 1. [Project Overview](#1-project-overview)
 2. [Architecture Overview](#2-architecture-overview)
@@ -226,47 +367,144 @@ Ensure the following CLI tools are installed on your workstation:
 
 ---
 
-## 8. Local Development Setup
-Clone and configure your local workspace:
+## 8. Local Development Setup & Master Port Access Guide
 
-```bash
-# 1. Clone the repository
-git clone https://github.com/Cloud-Tamil/Application-Projects.git
-cd "Application-Projects"
+### 🌐 Complete Local Port Allocation & Access Matrix
 
-# 2. Configure environment variables
-cp .env.example .env
+All services are configured with non-conflicting host ports so the entire stack—including the Web Management Console, all 5 microservices, databases, and the full observability suite—runs concurrently without port collisions.
 
-# 3. Verify Docker daemon is active
-docker info > /dev/null && echo "Docker daemon is running."
-```
+| Component / Service | Host URL | Port Mapping (Host:Container) | Credentials / Auth | Purpose & What to Expect |
+|---|---|---|---|---|
+| **Web Operations Console** | [http://localhost:3000](http://localhost:3000) | `3000:3000` | None | Interactive UI: Topology mesh, PromQL runner, Grafana live embed, chaos simulator, catalog manager. |
+| **Grafana 11 Dashboards** | [http://localhost:3001](http://localhost:3001) | `3001:3000` *(avoid conflict!)* | `admin` / `admin` | Auto-provisioned Google SRE Golden Signals, 99.9% SLO Availability, and Multi-Window Burn Rate gauges. |
+| **Prometheus UI & PromQL** | [http://localhost:9090](http://localhost:9090) | `9090:9090` | None | PromQL query engine, target health grid (all 5 microservices UP), alert rule states. |
+| **Alertmanager Console** | [http://localhost:9093](http://localhost:9093) | `9093:9093` | None | Active alert routing, notification receivers, alert silence management. |
+| **API Gateway (FastAPI)** | [http://localhost:8000](http://localhost:8000) | `8000:8000` | None | Reverse proxy with rate limiting, Swagger UI at [`/docs`](http://localhost:8000/docs), metrics at `/metrics`. |
+| **Auth & Identity Service** | [http://localhost:8001](http://localhost:8001) | `8001:8001` | `admin` / `fusion2026` | RS256 token authority, Swagger at [`/docs`](http://localhost:8001/docs), JWKS at `/.well-known/jwks.json`. |
+| **Items Catalog Service** | [http://localhost:8002](http://localhost:8002) | `8002:8002` | None | Hardware catalog API, Swagger at [`/docs`](http://localhost:8002/docs), `/items`, Redis cache metrics. |
+| **Orders Processing Service**| [http://localhost:8003](http://localhost:8003) | `8003:8003` | None | Saga checkout coordinator, Swagger at [`/docs`](http://localhost:8003/docs), `/orders`, idempotency store. |
+| **Notifications Service** | [http://localhost:8004](http://localhost:8004) | `8004:8004` | None | Webhook dispatcher, health at `/health/live`, metrics at `/metrics`. |
+| **PostgreSQL 16 Database** | `localhost:5432` | `5432:5432` | `fusion` / `secret` (`fusion_db`) | Relational database with persistent volume `pg_data`. |
+| **Redis 7 Cache / Sessions**| `localhost:6379` | `6379:6379` | None | In-memory key-value cache and session store with persistent volume `redis_data`. |
+
+> ⚠️ **CRITICAL PORT NOTE (Port 3000 vs 3001)**:
+> By default, both Grafana and Vite use port `3000`. To prevent the notorious `bind: address already in use 0.0.0.0:3000` error:
+> - **Web Operations Console** runs on **`http://localhost:3000`**
+> - **Grafana** is mapped to host port **`http://localhost:3001`** (`3001:3000` in `docker-compose.yml`)
 
 ---
 
-## 9. Docker Build and Run Commands
-Build production container images using multi-stage caching:
+### 🚀 How to Run the Entire Stack Locally (Step-by-Step)
+
+#### Step 1: Start the Backend Microservices & Observability Stack
+Run all 10 containers (Microservices, PostgreSQL, Redis, Prometheus, Alertmanager, Grafana) with one command from the project root:
 
 ```bash
-# Build the Items Service container
-docker build -t fusion/items-service:v2.5.0 -f services/items-service/Dockerfile .
+# 1. Clone the repository and enter directory
+git clone https://github.com/Cloud-Tamil/Application-Projects.git
+cd "Application-Projects"
 
-# Build the API Gateway container
-docker build -t fusion/api-gateway:v2.5.0 -f services/api-gateway/Dockerfile .
+# 2. Start all 10 Docker containers in background
+docker compose up -d --build
 
-# Run Items Service locally in isolated bridge network
-docker network create fusion-net || true
-
-docker run -d \
-  --name fusion-items \
-  --network fusion-net \
-  -p 8002:8002 \
-  -e DATABASE_URL="postgresql://fusion:secret@postgres:5432/fusion_db" \
-  -e REDIS_URL="redis://redis:6379/0" \
-  fusion/items-service:v2.5.0
-
-# Inspect container health
-docker inspect --format='{{json .State.Health}}' fusion-items | jq
+# 3. Verify all 10 containers are Healthy / Running
+docker compose ps
 ```
+
+You will see:
+```text
+NAME                            IMAGE                               STATUS
+fusion-alertmanager             prom/alertmanager:v0.27.0           Up (healthy)
+fusion-api-gateway              fusion/api-gateway:v2.5.0           Up (healthy)
+fusion-auth-service             fusion/auth-service:v2.5.0          Up (healthy)
+fusion-grafana                  grafana/grafana:11.3.1              Up (healthy)
+fusion-items-service            fusion/items-service:v2.5.0         Up (healthy)
+fusion-notifications-service    fusion/notifications-service:v2.5.0 Up (healthy)
+fusion-orders-service           fusion/orders-service:v2.5.0        Up (healthy)
+fusion-postgres                 postgres:16-alpine                  Up (healthy)
+fusion-prometheus               prom/prometheus:v2.55.0             Up (healthy)
+fusion-redis                    redis:7-alpine                      Up (healthy)
+```
+
+#### Step 2: Start the Web Management Console
+In a separate terminal window, launch the interactive React + Vite frontend:
+
+```bash
+# Install frontend dependencies
+npm install
+
+# Start the dev server on port 3000
+npm run dev
+```
+
+Now open your browser and navigate to:
+👉 **`http://localhost:3000`**
+
+#### Step 3: Verify the Observability Suite
+- **Open Grafana**: [http://localhost:3001](http://localhost:3001)  
+  Log in with username `admin` and password `admin`. Go to **Dashboards** > **Fusion SRE** > **Google SRE Golden Signals & SLO Availability** to see live metrics.
+- **Open Prometheus**: [http://localhost:9090](http://localhost:9090)  
+  Navigate to **Status** > **Targets** to confirm that all microservice scrape targets are in state **UP** (100% green).
+- **Open Alertmanager**: [http://localhost:9093](http://localhost:9093)  
+  View active alert rules and silences.
+
+---
+
+## 9. Common Docker & Runtime Errors — Root Causes & Complete Fixes
+
+If you encounter any of the following errors while building or running locally, here is the exact diagnosis and how it has been permanently resolved:
+
+### ❌ Error 1: `notifications-service` npm ci exit code 1
+```text
+target notifications-service: failed to solve: process "/bin/sh -c npm ci --only=production" did not complete successfully: exit code: 1
+```
+* **Root Cause**: `npm ci` strictly requires an existing `package-lock.json` file in the build context. If only `package.json` was present, `npm ci` fails immediately. In addition, `--only=production` is deprecated in modern npm (npm 7+ bundled with Node 20).
+* **Fix Applied**: 
+  1. Generated `services/notifications-service/package-lock.json` locking `express` and `prom-client`.
+  2. Updated `services/notifications-service/Dockerfile` line 5 to use a resilient command:
+     ```dockerfile
+     RUN if [ -f package-lock.json ]; then npm ci --omit=dev; else npm install --omit=dev --no-audit --no-fund; fi
+     ```
+
+---
+
+### ❌ Error 2: Alertmanager `invalid Slack webhook URL` & Cluster Peer Lookup
+```text
+loading config file failed: parse "${SLACK_WEBHOOK_URL}": invalid URI for request
+level=warn msg="failed to join cluster" err="lookup alertmanager-node2: no such host"
+```
+* **Root Cause**: Alertmanager fails to parse unexpanded bash variable placeholders `${SLACK_WEBHOOK_URL}` as valid URLs at startup and crashes. Additionally, in standalone local mode, attempting to resolve gossip peer `alertmanager-node2:9094` caused continuous lookup failures.
+* **Fix Applied**: 
+  1. Updated `ops/alertmanager/alertmanager.yml` to route alerts to `http://notifications-service:8004/notifications/dispatch` by default with empty `peers: []`.
+  2. Added `--cluster.listen-address=` to `docker-compose.yml` so Alertmanager starts cleanly in standalone mode.
+
+---
+
+### ❌ Error 3: Prometheus `lookup node-exporter: no such host`
+```text
+caller=scrape.go:1422 msg="Scrape failed" err="dial tcp: lookup node-exporter: no such host"
+```
+* **Root Cause**: `prometheus.yml` targeted `node-exporter:9100` and `alertmanager-node2:9094`, which are Kubernetes cluster components not present in standard local docker-compose. Meanwhile, `notifications-service:8004` was missing from scrape configs.
+* **Fix Applied**: Cleaned up `ops/prometheus/prometheus.yml` to scrape the 5 microservices running in docker-compose (`api-gateway:8000`, `auth-service:8001`, `items-service:8002`, `orders-service:8003`, `notifications-service:8004`) and pointed alertmanagers to `alertmanager:9093`.
+
+---
+
+### ❌ Error 4: Browser CORS Block (`No 'Access-Control-Allow-Origin' header`)
+```text
+Access to fetch at 'http://localhost:8000/api/items' from origin 'http://localhost:3000' has been blocked by CORS policy
+```
+* **Root Cause**: The FastAPI and Node.js microservices lacked CORS middleware headers, preventing browser clients on `http://localhost:3000` from making asynchronous fetch calls.
+* **Fix Applied**: Added `CORSMiddleware` (`allow_origins=["*"]`, `allow_methods=["*"]`, `allow_headers=["*"]`) across `api-gateway`, `auth-service`, `items-service`, `orders-service`, and express CORS headers in `notifications-service`.
+
+---
+
+### ❌ Error 5: Container Healthcheck Failure (`curl: not found`)
+```text
+HEALTHCHECK --interval=10s CMD curl -f http://localhost:800x/health/live || exit 1
+Container status: unhealthy (exec: "curl": executable file not found in $PATH)
+```
+* **Root Cause**: `python:3.12-slim` minimal base images do not include `curl` by default.
+* **Fix Applied**: Added `apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*` to the runner stage of each Python microservice Dockerfile.
 
 ---
 

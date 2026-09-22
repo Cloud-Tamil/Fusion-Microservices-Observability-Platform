@@ -2,10 +2,19 @@ import time
 import os
 import uuid
 from fastapi import FastAPI, Response, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr
 from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST
 
 app = FastAPI(title="Fusion Auth & Identity Service", version="2.5.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Prometheus Metrics
 AUTH_SUCCESS = Counter("fusion_auth_success_total", "Total successful authentication attempts")

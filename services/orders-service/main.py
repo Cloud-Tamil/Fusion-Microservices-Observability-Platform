@@ -2,11 +2,20 @@ import time
 import os
 import uuid
 from fastapi import FastAPI, Response, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
 from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST
 
 app = FastAPI(title="Fusion Orders Processing Service", version="2.5.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Prometheus Metrics
 ORDERS_TOTAL = Counter("fusion_orders_created_total", "Total orders placed", ["status"])

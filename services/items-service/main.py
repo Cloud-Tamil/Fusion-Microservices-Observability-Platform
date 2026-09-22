@@ -2,10 +2,19 @@ import time
 import os
 import json
 from fastapi import FastAPI, Response, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST
 
 app = FastAPI(title="Fusion Items Catalog Service", version="2.5.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Metrics
 CACHE_HITS = Counter("fusion_cache_hits_total", "Redis cache hits")

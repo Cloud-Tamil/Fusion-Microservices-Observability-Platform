@@ -10,13 +10,3 @@ datasources:
     jsonData:
       httpMethod: POST
       timeInterval: 15s
-
-  - name: Prometheus-Replica
-    type: prometheus
-    access: proxy
-    url: http://prometheus-replica:9091
-    isDefault: false
-    editable: false
-    jsonData:
-      httpMethod: POST
-      timeInterval: 15s

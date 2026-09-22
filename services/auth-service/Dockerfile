@@ -7,7 +7,9 @@ RUN pip install --no-cache-dir --user -r requirements.txt
 FROM python:3.12-slim AS runner
 WORKDIR /app
 
-RUN groupadd -r fusion && useradd -r -g fusion fusion
+RUN apt-get update && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd -r fusion && useradd -r -g fusion fusion
 
 COPY --from=builder /root/.local /home/fusion/.local
 COPY services/auth-service/ /app/
