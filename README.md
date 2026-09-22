@@ -396,24 +396,25 @@ All services are configured with non-conflicting host ports so the entire stack�
 
 ### 🚀 How to Run the Entire Stack Locally (Step-by-Step)
 
-#### Step 1: Start the Backend Microservices & Observability Stack
-Run all 10 containers (Microservices, PostgreSQL, Redis, Prometheus, Alertmanager, Grafana) with one command from the project root:
+#### Step 1: Start the Backend Microservices, Web Console & Observability Stack
+Run all 11 containers (Web Management Console, 5 Microservices, PostgreSQL, Redis, Prometheus, Alertmanager, Grafana) with one command from the project root:
 
 ```bash
 # 1. Clone the repository and enter directory
 git clone https://github.com/Cloud-Tamil/Application-Projects.git
 cd "Application-Projects"
 
-# 2. Start all 10 Docker containers in background
+# 2. Start all 11 Docker containers in background
 docker compose up -d --build
 
-# 3. Verify all 10 containers are Healthy / Running
+# 3. Verify all 11 containers are Healthy / Running
 docker compose ps
 ```
 
 You will see:
 ```text
 NAME                            IMAGE                               STATUS
+fusion-web-console              fusion/web-console:v2.5.0           Up (healthy)
 fusion-alertmanager             prom/alertmanager:v0.27.0           Up (healthy)
 fusion-api-gateway              fusion/api-gateway:v2.5.0           Up (healthy)
 fusion-auth-service             fusion/auth-service:v2.5.0          Up (healthy)
@@ -426,19 +427,41 @@ fusion-prometheus               prom/prometheus:v2.55.0             Up (healthy)
 fusion-redis                    redis:7-alpine                      Up (healthy)
 ```
 
-#### Step 2: Start the Web Management Console
-In a separate terminal window, launch the interactive React + Vite frontend:
+---
+
+### ☁️ Google Cloud Shell Web Preview Instructions
+
+If you are developing inside **Google Cloud Shell** (`*.cloudshell.dev`):
+
+#### 1. Why did you see *"Unable to forward your request to a backend. Couldn't connect to a server on port 3000"*?
+- **Root Cause**: In Google Cloud Shell, clicking the default **Web Preview** opens port `3000`. Previously, `web-console` was not included in `docker-compose.yml`, or `npm install` encountered an `ERESOLVE` peer dependency error between `vite` and `esbuild`. Therefore, nothing was listening on port 3000 when Cloud Shell attempted to route HTTP requests.
+- **Resolution**:
+  1. We resolved the `esbuild` peer dependency conflict in `package.json` and generated `package-lock.json`. `npm install && npm run dev` now installs cleanly without errors.
+  2. We packaged the web console with a multi-stage `Dockerfile` and added `web-console` directly to `docker-compose.yml`. Running `docker compose up -d --build` automatically starts the web console on port 3000!
+
+#### 2. Accessing Different Services in Google Cloud Shell
+Google Cloud Shell allows previewing any HTTP port via its Web Preview button:
+1. In the top right corner of the Google Cloud Shell terminal, click the **Web Preview** button (the eye icon).
+2. Click **"Change port"**:
+   - Enter **`3000`** ➔ **Web Operations Console** (Topology, Catalog, PromQL & Chaos UI)
+   - Enter **`3001`** ➔ **Grafana 11 Dashboards** (`admin` / `admin`)
+   - Enter **`8000`** ➔ **API Gateway Swagger Docs** (`/docs`)
+   - Enter **`9090`** ➔ **Prometheus Query Console & Target States**
+   - Enter **`9093`** ➔ **Alertmanager Notification Mesh**
+3. Click **"Change and Preview"**. Cloud Shell will open the service in a new browser tab.
+
+#### Step 2 (Alternative): Run Without Docker (Local Node Dev Mode)
+If you prefer running the Web Console natively using Node.js instead of Docker:
 
 ```bash
-# Install frontend dependencies
+# 1. Install dependencies (fixed peer dependencies)
 npm install
 
-# Start the dev server on port 3000
+# 2. Start the dev server on 0.0.0.0:3000
 npm run dev
 ```
 
-Now open your browser and navigate to:
-👉 **`http://localhost:3000`**
+Now open your browser or Cloud Shell Web Preview on port **3000**!
 
 #### Step 3: Verify the Observability Suite
 - **Open Grafana**: [http://localhost:3001](http://localhost:3001)  
