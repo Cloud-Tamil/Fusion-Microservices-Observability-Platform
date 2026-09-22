@@ -1,0 +1,13 @@
+{
+  "name": "fusion-notifications-service",
+  "version": "2.5.0",
+  "description": "Fusion Microservices asynchronous webhook & notification dispatcher",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "prom-client": "^15.1.3"
+  }
+}

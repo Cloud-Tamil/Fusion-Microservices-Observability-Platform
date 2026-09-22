@@ -1,0 +1,16 @@
+{{- if .Values.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "fusion-platform.fullname" . }}
+  labels:
+    {{- include "fusion-platform.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "fusion-platform.selectorLabels" . | nindent 6 }}
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: {{ .Values.serviceMonitor.interval | default "15s" }}
+{{- end }}

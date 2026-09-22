@@ -11,7 +11,7 @@ volumes:
   grafana_data:
 
 services:
-  # Ingress / API Gateway
+  # 1. Ingress / API Gateway
   api-gateway:
     build:
       context: .
@@ -25,10 +25,13 @@ services:
       - AUTH_SERVICE_URL=http://auth-service:8001
       - ITEMS_SERVICE_URL=http://items-service:8002
       - ORDERS_SERVICE_URL=http://orders-service:8003
+      - NOTIFICATIONS_SERVICE_URL=http://notifications-service:8004
       - RATE_LIMIT_RPS=100
     depends_on:
       - auth-service
       - items-service
+      - orders-service
+      - notifications-service
     networks:
       - fusion-net
     healthcheck:
@@ -37,7 +40,30 @@ services:
       timeout: 3s
       retries: 3
 
-  # Items Catalog Service
+  # 2. Auth Service
+  auth-service:
+    build:
+      context: .
+      dockerfile: services/auth-service/Dockerfile
+    image: fusion/auth-service:v2.5.0
+    container_name: fusion-auth-service
+    ports:
+      - "8001:8001"
+    environment:
+      - PORT=8001
+      - JWT_SECRET=supersecretfusionjwtkey
+      - REDIS_URL=redis://redis:6379/1
+    depends_on:
+      - redis
+    networks:
+      - fusion-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health/live"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # 3. Items Catalog Service
   items-service:
     build:
       context: .
@@ -61,20 +87,11 @@ services:
       timeout: 3s
       retries: 3
 
-  # Auth Service
-  auth-service:
-    image: fusion/auth-service:v2.5.0
-    container_name: fusion-auth-service
-    ports:
-      - "8001:8001"
-    environment:
-      - PORT=8001
-      - JWT_SECRET=supersecretfusionjwtkey
-    networks:
-      - fusion-net
-
-  # Orders Service
+  # 4. Orders Service
   orders-service:
+    build:
+      context: .
+      dockerfile: services/orders-service/Dockerfile
     image: fusion/orders-service:v2.5.0
     container_name: fusion-orders-service
     ports:
@@ -82,13 +99,41 @@ services:
     environment:
       - PORT=8003
       - DATABASE_URL=postgresql://fusion:secret@postgres:5432/fusion_db
+    depends_on:
+      - postgres
     networks:
       - fusion-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health/live"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
 
-  # PostgreSQL 16
+  # 5. Notifications Service
+  notifications-service:
+    build:
+      context: .
+      dockerfile: services/notifications-service/Dockerfile
+    image: fusion/notifications-service:v2.5.0
+    container_name: fusion-notifications-service
+    ports:
+      - "8004:8004"
+    environment:
+      - PORT=8004
+    networks:
+      - fusion-net
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:8004/health/live"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # 6. PostgreSQL 16
   postgres:
     image: postgres:16-alpine
     container_name: fusion-postgres
+    ports:
+      - "5432:5432"
     environment:
       - POSTGRES_USER=fusion
       - POSTGRES_PASSWORD=secret
@@ -103,10 +148,12 @@ services:
       timeout: 5s
       retries: 5
 
-  # Redis 7
+  # 7. Redis 7
   redis:
     image: redis:7-alpine
     container_name: fusion-redis
+    ports:
+      - "6379:6379"
     volumes:
       - redis_data:/data
     networks:
@@ -117,7 +164,7 @@ services:
       timeout: 3s
       retries: 3
 
-  # Prometheus
+  # 8. Prometheus
   prometheus:
     image: prom/prometheus:v2.55.0
     container_name: fusion-prometheus
@@ -135,7 +182,7 @@ services:
     networks:
       - fusion-net
 
-  # Alertmanager
+  # 9. Alertmanager
   alertmanager:
     image: prom/alertmanager:v0.27.0
     container_name: fusion-alertmanager
@@ -148,7 +195,7 @@ services:
     networks:
       - fusion-net
 
-  # Grafana 11
+  # 10. Grafana 11
   grafana:
     image: grafana/grafana:11.3.1
     container_name: fusion-grafana
@@ -160,6 +207,8 @@ services:
       - GF_USERS_ALLOW_SIGN_UP=false
     volumes:
       - grafana_data:/var/lib/grafana
+      - ./ops/grafana/provisioning:/etc/grafana/provisioning
+      - ./ops/grafana/dashboards:/etc/grafana/provisioning/dashboards
     depends_on:
       - prometheus
     networks:
