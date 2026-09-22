@@ -1,0 +1,52 @@
+global:
+  resolve_timeout: 5m
+
+# Dual-node clustered gossip configuration
+# node-1:9093 <-> node-2:9094
+cluster:
+  listen_address: "0.0.0.0:9094"
+  peers:
+    - "alertmanager-node2:9094"
+
+route:
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 10s
+  group_interval: 1m
+  repeat_interval: 3h
+  receiver: 'slack-warning-channel'
+  routes:
+    # Critical SLO or Service Outages trigger PagerDuty directly
+    - match:
+        severity: critical
+      receiver: 'pagerduty-critical'
+      continue: true
+    # Warning alerts route to Slack
+    - match:
+        severity: warning
+      receiver: 'slack-warning-channel'
+
+inhibit_rules:
+  # Inhibit warning alerts if service is completely down
+  - source_match:
+      alertname: 'FusionServiceDown'
+    target_match:
+      severity: 'warning'
+    equal: ['service', 'instance']
+
+receivers:
+  - name: 'pagerduty-critical'
+    pagerduty_configs:
+      - service_key: '${PAGERDUTY_SERVICE_KEY}'
+        severity: 'critical'
+        send_resolved: true
+
+  - name: 'slack-warning-channel'
+    slack_configs:
+      - api_url: '${SLACK_WEBHOOK_URL}'
+        channel: '#incidents-platform'
+        send_resolved: true
+        title: '[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }} ({{ .CommonLabels.service }})'
+        text: >-
+          *Summary:* {{ .CommonAnnotations.summary }}
+          *Description:* {{ .CommonAnnotations.description }}
+          *Severity:* {{ .CommonLabels.severity }}

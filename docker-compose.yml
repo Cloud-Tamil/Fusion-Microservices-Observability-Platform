@@ -1,0 +1,166 @@
+version: '3.8'
+
+networks:
+  fusion-net:
+    driver: bridge
+
+volumes:
+  pg_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:
+
+services:
+  # Ingress / API Gateway
+  api-gateway:
+    build:
+      context: .
+      dockerfile: services/api-gateway/Dockerfile
+    image: fusion/api-gateway:v2.5.0
+    container_name: fusion-api-gateway
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - AUTH_SERVICE_URL=http://auth-service:8001
+      - ITEMS_SERVICE_URL=http://items-service:8002
+      - ORDERS_SERVICE_URL=http://orders-service:8003
+      - RATE_LIMIT_RPS=100
+    depends_on:
+      - auth-service
+      - items-service
+    networks:
+      - fusion-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/live"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # Items Catalog Service
+  items-service:
+    build:
+      context: .
+      dockerfile: services/items-service/Dockerfile
+    image: fusion/items-service:v2.5.0
+    container_name: fusion-items-service
+    ports:
+      - "8002:8002"
+    environment:
+      - PORT=8002
+      - DATABASE_URL=postgresql://fusion:secret@postgres:5432/fusion_db
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - fusion-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health/live"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # Auth Service
+  auth-service:
+    image: fusion/auth-service:v2.5.0
+    container_name: fusion-auth-service
+    ports:
+      - "8001:8001"
+    environment:
+      - PORT=8001
+      - JWT_SECRET=supersecretfusionjwtkey
+    networks:
+      - fusion-net
+
+  # Orders Service
+  orders-service:
+    image: fusion/orders-service:v2.5.0
+    container_name: fusion-orders-service
+    ports:
+      - "8003:8003"
+    environment:
+      - PORT=8003
+      - DATABASE_URL=postgresql://fusion:secret@postgres:5432/fusion_db
+    networks:
+      - fusion-net
+
+  # PostgreSQL 16
+  postgres:
+    image: postgres:16-alpine
+    container_name: fusion-postgres
+    environment:
+      - POSTGRES_USER=fusion
+      - POSTGRES_PASSWORD=secret
+      - POSTGRES_DB=fusion_db
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    networks:
+      - fusion-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fusion -d fusion_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Redis 7
+  redis:
+    image: redis:7-alpine
+    container_name: fusion-redis
+    volumes:
+      - redis_data:/data
+    networks:
+      - fusion-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+  # Prometheus
+  prometheus:
+    image: prom/prometheus:v2.55.0
+    container_name: fusion-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./ops/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./ops/prometheus/alerts.yml:/etc/prometheus/alerts.yml
+      - ./ops/prometheus/recording_rules.yml:/etc/prometheus/recording_rules.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+    networks:
+      - fusion-net
+
+  # Alertmanager
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: fusion-alertmanager
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./ops/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+    networks:
+      - fusion-net
+
+  # Grafana 11
+  grafana:
+    image: grafana/grafana:11.3.1
+    container_name: fusion-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - fusion-net

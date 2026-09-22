@@ -1,0 +1,76 @@
+global:
+  environment: production
+  domain: fusion.cloudtamil.io
+
+replicaCount: 3
+
+image:
+  registry: ghcr.io
+  repository: cloud-tamil/fusion
+  pullPolicy: IfNotPresent
+  tag: "v2.5.0"
+
+serviceAccount:
+  create: true
+  name: "fusion-sa"
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8000"
+  prometheus.io/path: "/metrics"
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  fsGroup: 10001
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+service:
+  type: ClusterIP
+  port: 8000
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  hosts:
+    - host: api.fusion.cloudtamil.io
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: fusion-tls
+      hosts:
+        - api.fusion.cloudtamil.io
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 512Mi
+  requests:
+    cpu: 250m
+    memory: 128Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+pdb:
+  enabled: true
+  minAvailable: 2
+
+serviceMonitor:
+  enabled: true
+  namespace: monitoring
+  interval: 15s

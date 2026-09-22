@@ -1,0 +1,25 @@
+apiVersion: v2
+name: fusion-platform
+description: A production-ready Helm chart for the Fusion Microservices and Observability Platform
+type: application
+version: 2.5.0
+appVersion: "2.5.0"
+keywords:
+  - microservices
+  - observability
+  - prometheus
+  - grafana
+  - high-availability
+home: https://github.com/Cloud-Tamil/Application-Projects
+maintainers:
+  - name: Cloud-Tamil SRE Team
+    email: sre@cloud-tamil.io
+dependencies:
+  - name: postgresql
+    version: 15.5.24
+    repository: https://charts.bitnami.com/bitnami
+    condition: postgresql.enabled
+  - name: redis
+    version: 19.6.4
+    repository: https://charts.bitnami.com/bitnami
+    condition: redis.enabled

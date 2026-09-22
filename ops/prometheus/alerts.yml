@@ -1,0 +1,92 @@
+groups:
+  - name: fusion-microservices-alerts
+    rules:
+      # 1. Application Downtime
+      - alert: FusionServiceDown
+        expr: up{job=~"api-gateway|items-service|auth-service|orders-service"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: platform-sre
+        annotations:
+          summary: "Microservice {{ $labels.job }} is DOWN"
+          description: "Target {{ $labels.instance }} has been unreachable for more than 1 minute."
+
+      # 2. High HTTP 5xx Error Rate
+      - alert: FusionHighErrorRate
+        expr: job:fusion_error_rate:5m > 0.05
+        for: 2m
+        labels:
+          severity: critical
+          team: core-services
+        annotations:
+          summary: "High 5xx error rate detected on {{ $labels.job }}"
+          description: "HTTP 5xx error rate is {{ $value | humanizePercentage }} (exceeds 5.0% threshold)."
+
+      # 3. High Response Latency (p95 > 1000ms)
+      - alert: FusionHighLatencyP95
+        expr: job:fusion_latency_p95:5m > 1.0
+        for: 3m
+        labels:
+          severity: warning
+          team: core-services
+        annotations:
+          summary: "p95 latency degraded on {{ $labels.job }}"
+          description: "95th percentile latency is {{ $value | humanizeDuration }} (exceeds 1000ms SLA)."
+
+      # 4. Multi-Window Fast Burn Rate (14.4x consuming 2% budget in 1 hour)
+      - alert: FusionSLOFastBurn
+        expr: job:fusion_slo_burn_rate:5m > 14.4 and job:fusion_slo_burn_rate:1h > 14.4
+        for: 2m
+        labels:
+          severity: critical
+          slo: availability
+          team: platform-sre
+        annotations:
+          summary: "Critical SLO Fast Burn: 99.9% error budget exhausting rapidly"
+          description: "Burn rate is {{ $value }}x normal. 2% of total monthly error budget will be consumed in 1 hour."
+
+      # 5. Multi-Window Slow Burn Rate (6.0x consuming 5% budget in 6 hours)
+      - alert: FusionSLOSlowBurn
+        expr: job:fusion_slo_burn_rate:30m > 6.0 and job:fusion_slo_burn_rate:6h > 6.0
+        for: 15m
+        labels:
+          severity: warning
+          slo: availability
+          team: platform-sre
+        annotations:
+          summary: "SLO Slow Burn: Error budget depleting"
+          description: "Burn rate is {{ $value }}x normal. Ticket generated for engineering triage."
+
+      # 6. High CPU Usage
+      - alert: FusionHighCPUUsage
+        expr: (sum(rate(container_cpu_usage_seconds_total{container!=""}[5m])) by (pod, namespace) / sum(container_spec_cpu_quota{container!=""}/100000) by (pod, namespace)) > 0.85
+        for: 5m
+        labels:
+          severity: warning
+          team: infra-sre
+        annotations:
+          summary: "Pod {{ $labels.pod }} CPU usage > 85%"
+          description: "Pod is approaching its compute throttle quota."
+
+      # 7. High Memory Usage
+      - alert: FusionHighMemoryUsage
+        expr: (container_memory_working_set_bytes{container!=""} / container_spec_memory_limit_bytes{container!=""}) > 0.90
+        for: 5m
+        labels:
+          severity: critical
+          team: infra-sre
+        annotations:
+          summary: "Pod {{ $labels.pod }} Memory usage > 90%"
+          description: "Pod is at risk of OOMKilled eviction."
+
+      # 8. Pod CrashLooping / Restarts
+      - alert: FusionPodCrashLooping
+        expr: increase(kube_pod_container_status_restarts_total[10m]) > 3
+        for: 2m
+        labels:
+          severity: critical
+          team: infra-sre
+        annotations:
+          summary: "Pod {{ $labels.pod }} is restarting frequently"
+          description: "Container restarted more than 3 times in the last 10 minutes."

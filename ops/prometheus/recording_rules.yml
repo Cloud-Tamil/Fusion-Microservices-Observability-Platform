@@ -1,0 +1,26 @@
+groups:
+  - name: fusion-slo-recording-rules
+    interval: 30s
+    rules:
+      # Rolling 5-minute success rate
+      - record: job:fusion_slo_availability:5m
+        expr: (1 - (sum(rate(http_requests_total{status=~"5.."}[5m])) / sum(rate(http_requests_total[5m])))) * 100
+
+      # Rolling 5-minute error rate
+      - record: job:fusion_error_rate:5m
+        expr: sum(rate(http_requests_total{status=~"5.."}[5m])) / sum(rate(http_requests_total[5m]))
+
+      # Rolling 1-hour error rate
+      - record: job:fusion_error_rate:1h
+        expr: sum(rate(http_requests_total{status=~"5.."}[1h])) / sum(rate(http_requests_total[1h]))
+
+      # 95th Percentile Latency
+      - record: job:fusion_latency_p95:5m
+        expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))
+
+      # SLO Multi-Window Burn Rate (SLO = 99.9%, Budget = 0.001)
+      - record: job:fusion_slo_burn_rate:5m
+        expr: job:fusion_error_rate:5m / (1 - 0.999)
+
+      - record: job:fusion_slo_burn_rate:1h
+        expr: job:fusion_error_rate:1h / (1 - 0.999)

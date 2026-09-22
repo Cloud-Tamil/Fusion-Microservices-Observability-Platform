@@ -1,0 +1,6 @@
+{
+  "name": "Fusion Microservices & Observability Platform",
+  "description": "Production microservices architecture with real-time Prometheus metrics, Grafana observability dashboards, high availability failover, and Alertmanager rules.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
